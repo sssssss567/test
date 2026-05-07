@@ -1,37 +1,42 @@
 {% extends "layout.html" %}
 {% block content %}
-<h2>商品列表</h2>
-<div style="margin-bottom: 20px; background: #f4f4f4; padding: 10px;">
-    <strong>作业要求查询入口：</strong>
-    <a href="/items">全部</a> |
-    <a href="/items?filter=unsold">未售出商品 </a> |
-    <a href="/items?filter=expensive">价格 > 30 </a> |
-    <a href="/items?filter=daily">生活用品 </a> |
-    <a href="/items?filter=u001">u001发布的商品 </a>
+<h2>商品大厅</h2>
+
+<div style="margin-bottom: 20px;">
+    <form action="/items" method="get" style="display: inline;">
+        <input type="text" name="q" placeholder="搜索商品名...">
+        <button type="submit">搜索</button>
+    </form>
+    | 筛选：
+    <a href="/items?filter=unsold">未售出</a> |
+    <a href="/items?filter=expensive">价格>30</a> |
+    <a href="/items?filter=daily">生活用品</a>
 </div>
+
 <table>
     <tr>
-        <th>ID</th>
-        <th>名称</th>
-        <th>类别</th>
-        <th>价格</th>
+        <th>商品名</th>
+        <th>分类</th>
+        <th>价格 (元)</th>
         <th>状态</th>
-        <th>卖家ID</th>
-        <th>操作 </th>
+        <th>操作</th>
     </tr>
     {% for item in items %}
     <tr>
-        <td>{{ item.item_id }}</td>
         <td>{{ item.item_name }}</td>
         <td>{{ item.category }}</td>
-        <td>{{ item.price }}</td>
-        <td>{{ '已售出' if item.status == 1 else '未售出' }}</td>
-        <td>{{ item.seller_id }}</td>
+        <td>
+            <form action="/edit_price" method="post" style="display:inline;">
+                <input type="hidden" name="item_id" value="{{ item.item_id }}">
+                <input type="number" name="price" value="{{ item.price }}" style="width:50px;">
+                <button type="submit" style="font-size:10px;">改价</button>
+            </form>
+        </td>
+        <td class="status-{{ item.status }}">{{ '在售' if item.status == 0 else '已售出' }}</td>
         <td>
             {% if item.status == 0 %}
-            <a href="/buy/{{ item.item_id }}" class="btn">模拟购买</a>
-            {% else %}
-            <span style="color: grey;">已售罄</span>
+            <a href="/buy/{{ item.item_id }}" class="btn btn-buy">购买</a>
+            <a href="/delete/{{ item.item_id }}" class="btn btn-del" onclick="return confirm('确定删除吗？')">删除</a>
             {% endif %}
         </td>
     </tr>

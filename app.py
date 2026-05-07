@@ -1,21 +1,18 @@
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, render_template, request, redirect, url_for, flash
 import sqlite3
 import os
 
 app = Flask(__name__)
+app.secret_key = 'some_secret_key'
 
-# 获取绝对路径，确保在任何环境下都能找到数据库
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, 'campus_trade.db')
 
-def query_db(query, args=(), one=False):
+def get_db_connection():
     conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    cur = conn.cursor()
-    cur.execute(query, args)
-    rv = cur.fetchall()
-    conn.close()
-    return (rv[0] if rv else None) if one else rv
+    # 将查询结果转换为字典列表，避免元组索引报错
+    conn.row_factory = lambda cursor, row: dict(zip([col[0] for col in cursor.description], row))
+    return conn
 
 @app.route('/')
 def index():
@@ -23,66 +20,96 @@ def index():
 
 @app.route('/items')
 def list_items():
-    filter_type = request.args.get('filter')
-    sql = "SELECT * FROM Item"
-    if filter_type == 'unsold': sql = "SELECT * FROM Item WHERE status = 0"
-    elif filter_type == 'expensive': sql = "SELECT * FROM Item WHERE price > 30"
-    elif filter_type == 'daily': sql = "SELECT * FROM Item WHERE category = 'DailyGoods'"
-    elif filter_type == 'u001': sql = "SELECT * FROM Item WHERE seller_id = 'u001'"
+    conn = get_db_connection()
+    f = request.args.get('filter')
+    q = request.args.get('q')
     
-    items = query_db(sql)
+    sql = "SELECT * FROM Item WHERE 1=1"
+    params = []
+    
+    if f == 'unsold': sql += " AND status = 0" [cite: 44]
+    elif f == 'expensive': sql += " AND price > 30" [cite: 45]
+    elif f == 'daily': sql += " AND category = 'DailyGoods'" [cite: 46]
+    elif f == 'u001': sql += " AND seller_id = 'u001'" [cite: 47]
+    
+    if q:
+        sql += " AND item_name LIKE ?"
+        params.append(f'%{q}%')
+        
+    items = conn.execute(sql, params).fetchall()
+    conn.close()
     return render_template('items.html', items=items)
 
 @app.route('/buy/<int:item_id>')
 def buy(item_id):
-    conn = sqlite3.connect(DB_PATH)
-    try:
-        item = conn.execute("SELECT status FROM Item WHERE item_id=?", (item_id,)).fetchone()
-        if item and item[0] == 0:
+    conn = get_db_connection()
+    item = conn.execute("SELECT status FROM Item WHERE item_id=?", (item_id,)).fetchone()
+    
+    if item and item['status'] == 0: [cite: 24, 68]
+        try:
             conn.execute("BEGIN TRANSACTION")
-            conn.execute("INSERT INTO Orders (order_id, item_id, buyer_id, order_date) VALUES (?, ?, ?, date('now'))", 
-                         (f"NEW{item_id}", item_id, 'u001'))
-            conn.execute("UPDATE Item SET status = 1 WHERE item_id = ?", (item_id,))
+            conn.execute("INSERT INTO Orders (item_id, buyer_id, order_date) VALUES (?, 'u001', date('now'))", (item_id,)) [cite: 65]
+            conn.execute("UPDATE Item SET status = 1 WHERE item_id = ?", (item_id,)) [cite: 66]
             conn.commit()
-    except Exception:
-        conn.rollback()
-    finally:
-        conn.close()
+        except:
+            conn.rollback()
+    conn.close()
+    return redirect(url_for('list_items'))
+
+@app.route('/delete/<int:item_id>')
+def delete_item(item_id):
+    conn = get_db_connection()
+    # 仅允许删除未售出的商品 
+    conn.execute("DELETE FROM Item WHERE item_id = ? AND status = 0", (item_id,))
+    conn.commit()
+    conn.close()
+    return redirect(url_for('list_items'))
+
+@app.route('/edit_price', methods=['POST'])
+def edit_price():
+    item_id = request.form.get('item_id')
+    new_price = request.form.get('price')
+    conn = get_db_connection()
+    conn.execute("UPDATE Item SET price = ? WHERE item_id = ?", (new_price, item_id)) [cite: 37]
+    conn.commit()
+    conn.close()
     return redirect(url_for('list_items'))
 
 @app.route('/queries')
 def stats():
-    # 修正：改用索引 [0] 访问聚合函数结果，防止 TypeError
-    res_total = query_db("SELECT COUNT(*) FROM Item", one=True)
-    total_count = res_total[0] if res_total else 0
-
-    res_avg = query_db("SELECT AVG(price) FROM Item", one=True)
-    avg_price = res_avg[0] if res_avg and res_avg[0] is not None else 0
-
-    cat_counts = query_db("SELECT category, COUNT(*) as c FROM Item GROUP BY category")
+    conn = get_db_connection()
+    total = conn.execute("SELECT COUNT(*) as c FROM Item").fetchone()['c'] [cite: 55]
+    avg = conn.execute("SELECT AVG(price) as a FROM Item").fetchone()['a'] or 0 [cite: 57]
+    cats = conn.execute("SELECT category, COUNT(*) as c FROM Item GROUP BY category").fetchall() [cite: 56]
+    top = conn.execute("SELECT seller_id, COUNT(*) as c FROM Item GROUP BY seller_id ORDER BY c DESC LIMIT 1").fetchone() [cite: 58]
     
-    res_top = query_db("SELECT seller_id, COUNT(*) FROM Item GROUP BY seller_id ORDER BY COUNT(*) DESC LIMIT 1", one=True)
-    top_user = res_top if res_top else ["无", 0]
-
-    return render_template('queries.html', 
-                           total_count=total_count, 
-                           avg_price=avg_price, 
-                           cat_counts=cat_counts, 
-                           top_user=top_user)
+    # 连接查询：已售商品及其买家姓名 [cite: 50]
+    sold_details = conn.execute("""
+        SELECT i.item_name, u.user_name FROM Item i 
+        JOIN Orders o ON i.item_id = o.item_id 
+        JOIN User u ON o.buyer_id = u.user_id
+    """).fetchall()
+    
+    conn.close()
+    return render_template('queries.html', **locals())
 
 @app.route('/users')
 def list_users():
-    users = query_db("SELECT * FROM User")
+    conn = get_db_connection()
+    users = conn.execute("SELECT * FROM User").fetchall() [cite: 5]
+    conn.close()
     return render_template('users.html', users=users)
 
 @app.route('/orders')
 def list_orders():
-    orders = query_db("""
-        SELECT i.item_name, u.user_name, o.order_date 
-        FROM Orders o 
+    conn = get_db_connection()
+    # 连接查询：商品名+买家名+日期 [cite: 51]
+    orders = conn.execute("""
+        SELECT i.item_name, u.user_name, o.order_date FROM Orders o 
         JOIN Item i ON o.item_id = i.item_id 
         JOIN User u ON o.buyer_id = u.user_id
-    """)
+    """).fetchall()
+    conn.close()
     return render_template('orders.html', orders=orders)
 
 if __name__ == '__main__':
