@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>校园二手交易平台</title>
+    <style>
+        nav {
+            background: #333;
+            color: white;
+            padding: 10px;
+        }
+
+        nav a {
+            color: white;
+            margin-right: 15px;
+            text-decoration: none;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        th,
+        td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+
+        .btn {
+            background: #007bff;
+            color: white;
+            padding: 5px 10px;
+            text-decoration: none;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+
+<body>
+    <nav>
+        <a href="/">首页</a>
+        <a href="/items">商品列表</a>
+        <a href="/users">用户列表</a>
+        <a href="/orders">订单列表</a>
+        <a href="/queries">统计分析</a>
+    </nav>
+    <div style="padding: 20px;">
+        {% block content %}{% endblock %}
+    </div>
+</body>
+
+</html>

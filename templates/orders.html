@@ -1,0 +1,18 @@
+{% extends "layout.html" %}
+{% block content %}
+<h2>订单记录 </h2>
+<table>
+    <tr>
+        <th>商品名</th>
+        <th>买家姓名</th>
+        <th>成交日期</th>
+    </tr>
+    {% for order in orders %}
+    <tr>
+        <td>{{ order.item_name }}</td>
+        <td>{{ order.user_name }}</td>
+        <td>{{ order.order_date }}</td>
+    </tr>
+    {% endfor %}
+</table>
+{% endblock %}

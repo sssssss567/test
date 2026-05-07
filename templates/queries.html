@@ -1,0 +1,16 @@
+{% extends "layout.html" %}
+{% block content %}
+<h2>统计与聚合分析 </h2>
+<div style="background: #eef; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
+    <p><strong>商品总数 ：</strong> {{ total_count }} 件</p>
+    <p><strong>平均价格 ：</strong> {{ "%.2f"|format(avg_price) }} 元</p>
+    <p><strong>发布最多的用户 ：</strong> {{ top_user.seller_id }} (发布了 {{ top_user.c }} 件)</p>
+</div>
+
+<h3>每类商品数量统计 </h3>
+<ul>
+    {% for cat in cat_counts %}
+    <li>{{ cat.category }}: {{ cat.c }} 件</li>
+    {% endfor %}
+</ul>
+{% endblock %}

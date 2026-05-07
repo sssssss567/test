@@ -1,0 +1,40 @@
+{% extends "layout.html" %}
+{% block content %}
+<h2>商品列表</h2>
+<div style="margin-bottom: 20px; background: #f4f4f4; padding: 10px;">
+    <strong>作业要求查询入口：</strong>
+    <a href="/items">全部</a> |
+    <a href="/items?filter=unsold">未售出商品 </a> |
+    <a href="/items?filter=expensive">价格 > 30 </a> |
+    <a href="/items?filter=daily">生活用品 </a> |
+    <a href="/items?filter=u001">u001发布的商品 </a>
+</div>
+<table>
+    <tr>
+        <th>ID</th>
+        <th>名称</th>
+        <th>类别</th>
+        <th>价格</th>
+        <th>状态</th>
+        <th>卖家ID</th>
+        <th>操作 </th>
+    </tr>
+    {% for item in items %}
+    <tr>
+        <td>{{ item.item_id }}</td>
+        <td>{{ item.item_name }}</td>
+        <td>{{ item.category }}</td>
+        <td>{{ item.price }}</td>
+        <td>{{ '已售出' if item.status == 1 else '未售出' }}</td>
+        <td>{{ item.seller_id }}</td>
+        <td>
+            {% if item.status == 0 %}
+            <a href="/buy/{{ item.item_id }}" class="btn">模拟购买</a>
+            {% else %}
+            <span style="color: grey;">已售罄</span>
+            {% endif %}
+        </td>
+    </tr>
+    {% endfor %}
+</table>
+{% endblock %}
