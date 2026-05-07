@@ -4,6 +4,7 @@ import os
 
 app = Flask(__name__)
 
+# 获取绝对路径，确保在任何环境下都能找到数据库
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, 'campus_trade.db')
 
@@ -20,7 +21,6 @@ def query_db(query, args=(), one=False):
 def index():
     return render_template('index.html')
 
-# 商品列表与各种查询 
 @app.route('/items')
 def list_items():
     filter_type = request.args.get('filter')
@@ -33,35 +33,42 @@ def list_items():
     items = query_db(sql)
     return render_template('items.html', items=items)
 
-# 购买逻辑实现 
 @app.route('/buy/<int:item_id>')
 def buy(item_id):
     conn = sqlite3.connect(DB_PATH)
     try:
-        # 简单业务逻辑：检查状态并更新 
         item = conn.execute("SELECT status FROM Item WHERE item_id=?", (item_id,)).fetchone()
         if item and item[0] == 0:
             conn.execute("BEGIN TRANSACTION")
-            # 1. 插入订单 (模拟 buyer 为 u001) 
             conn.execute("INSERT INTO Orders (order_id, item_id, buyer_id, order_date) VALUES (?, ?, ?, date('now'))", 
                          (f"NEW{item_id}", item_id, 'u001'))
-            # 2. 修改状态为 1 
             conn.execute("UPDATE Item SET status = 1 WHERE item_id = ?", (item_id,))
             conn.commit()
-    except Exception as e:
+    except Exception:
         conn.rollback()
     finally:
         conn.close()
     return redirect(url_for('list_items'))
 
-# 聚合统计 
 @app.route('/queries')
 def stats():
-    total_count = query_db("SELECT COUNT(*) as c FROM Item", one=True)['c']
-    avg_price = query_db("SELECT AVG(price) as a FROM Item", one=True)['a']
+    # 修正：改用索引 [0] 访问聚合函数结果，防止 TypeError
+    res_total = query_db("SELECT COUNT(*) FROM Item", one=True)
+    total_count = res_total[0] if res_total else 0
+
+    res_avg = query_db("SELECT AVG(price) FROM Item", one=True)
+    avg_price = res_avg[0] if res_avg and res_avg[0] is not None else 0
+
     cat_counts = query_db("SELECT category, COUNT(*) as c FROM Item GROUP BY category")
-    top_user = query_db("SELECT seller_id, COUNT(*) as c FROM Item GROUP BY seller_id ORDER BY c DESC LIMIT 1", one=True)
-    return render_template('queries.html', **locals())
+    
+    res_top = query_db("SELECT seller_id, COUNT(*) FROM Item GROUP BY seller_id ORDER BY COUNT(*) DESC LIMIT 1", one=True)
+    top_user = res_top if res_top else ["无", 0]
+
+    return render_template('queries.html', 
+                           total_count=total_count, 
+                           avg_price=avg_price, 
+                           cat_counts=cat_counts, 
+                           top_user=top_user)
 
 @app.route('/users')
 def list_users():
@@ -70,7 +77,6 @@ def list_users():
 
 @app.route('/orders')
 def list_orders():
-    # 连接查询：商品名+买家名+日期 
     orders = query_db("""
         SELECT i.item_name, u.user_name, o.order_date 
         FROM Orders o 
