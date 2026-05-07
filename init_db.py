@@ -37,14 +37,15 @@ def init():
         FOREIGN KEY (buyer_id) REFERENCES User(user_id)
     );
 
-    CREATE VIEW sold_items_view AS 
+    -- 视图任务
+    CREATE VIEW IF NOT EXISTS sold_items_view AS 
     SELECT i.item_name, o.buyer_id FROM Item i JOIN Orders o ON i.item_id = o.item_id;
 
-    CREATE VIEW unsold_items_view AS 
+    CREATE VIEW IF NOT EXISTS unsold_items_view AS 
     SELECT * FROM Item WHERE status = 0;
     ''')
 
-    # 插入初始数据 [cite: 9, 11, 13]
+    # 初始数据
     users = [('u001', 'ZhangSan', '13800000001'), ('u002', 'LiSi', '13800000002'), 
              ('u003', 'WangWu', '13800000003'), ('u004', 'ZhaoLiu', '13800000004')]
     items = [(1001, 'CalculusBook', 'Book', 20, 0, 'u001'),
